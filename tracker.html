@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Adaikkappan IPMAT Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+font-family: Arial;
+text-align:center;
+background:#111827;
+color:white;
+}
+
+h2 { margin-top:20px; }
+
+table {
+margin:auto;
+border-collapse: collapse;
+margin-top:20px;
+}
+
+th, td {
+border:1px solid #333;
+padding:8px;
+cursor:pointer;
+}
+
+th { background:#1f2937; }
+
+.notdone { background:#7f1d1d; color:white; }
+.done { background:#065f46; color:white; }
+
+input {
+width:70px;
+padding:5px;
+background:#1f2937;
+color:white;
+border:1px solid #333;
+}
+
+.section { margin-top:40px; }
+
+canvas {
+background:#1f2937;
+padding:10px;
+border-radius:10px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🔥 Adaikkappan Weekly IPMAT Tracker</h2>
+
+<table id="tracker">
+<tr>
+<th>Task</th>
+<th>Mon</th>
+<th>Tue</th>
+<th>Wed</th>
+<th>Thu</th>
+<th>Fri</th>
+<th>Sat</th>
+<th>Sun</th>
+</tr>
+</table>
+
+<div style="margin:20px; font-size:18px;" id="overall">
+Weekly Consistency: 0%
+</div>
+
+<canvas id="consistencyChart"></canvas>
+
+<div class="section">
+<h3>📊 Daily Marks Entry</h3>
+<table id="marksTable">
+<tr>
+<th>Day</th>
+<th>QA</th>
+<th>VA</th>
+<th>Mock</th>
+</tr>
+</table>
+</div>
+
+<div class="section">
+<h3>📈 QA Performance</h3>
+<canvas id="qaChart"></canvas>
+</div>
+
+<div class="section">
+<h3>📈 VA Performance</h3>
+<canvas id="vaChart"></canvas>
+</div>
+
+<div class="section">
+<h3>📈 Mock Performance</h3>
+<canvas id="mockChart"></canvas>
+</div>
+
+<script>
+const tasks = [
+"Daily RC",
+"QA Topic",
+"VA Topic",
+"Mock",
+"Daily Test",
+"Concept Revision"
+];
+
+const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+const table = document.getElementById("tracker");
+const marksTable = document.getElementById("marksTable");
+
+let consistencyChart, qaChart, vaChart, mockChart;
+
+// BUILD TASK TABLE
+tasks.forEach(task=>{
+let row = table.insertRow();
+let first = row.insertCell();
+first.innerHTML = task;
+
+for(let i=0;i<days.length;i++){
+let cell = row.insertCell();
+cell.classList.add("notdone");
+
+cell.onclick = function(){
+this.classList.toggle("done");
+this.classList.toggle("notdone");
+saveData();
+calculate();
+};
+}
+});
+
+// BUILD MARKS TABLE
+days.forEach(day=>{
+let row = marksTable.insertRow();
+row.insertCell().innerHTML = day;
+
+for(let j=0;j<3;j++){
+let cell = row.insertCell();
+let input = document.createElement("input");
+input.type="number";
+input.oninput=function(){
+saveData();
+updateGraphs();
+};
+cell.appendChild(input);
+}
+});
+
+function calculate(){
+let total=0, done=0;
+
+for(let i=1;i<table.rows.length;i++){
+for(let j=1;j<=days.length;j++){
+total++;
+if(table.rows[i].cells[j].classList.contains("done")){
+done++;
+}
+}
+}
+
+let percent=Math.round((done/total)*100);
+document.getElementById("overall").innerText=
+"Weekly Consistency: "+percent+"%";
+
+updateConsistencyGraph();
+}
+
+function updateConsistencyGraph(){
+let daily=[];
+
+for(let j=1;j<=days.length;j++){
+let count=0;
+for(let i=1;i<table.rows.length;i++){
+if(table.rows[i].cells[j].classList.contains("done")){
+count++;
+}
+}
+daily.push(count);
+}
+
+if(consistencyChart) consistencyChart.destroy();
+
+consistencyChart=new Chart(
+document.getElementById("consistencyChart"),{
+type:"bar",
+data:{
+labels:days,
+datasets:[{
+label:"Tasks Completed",
+data:daily,
+backgroundColor:"#2563eb"
+}]
+},
+options:{
+responsive:true,
+plugins:{legend:{labels:{color:"white"}}},
+scales:{
+x:{ticks:{color:"white"}},
+y:{ticks:{color:"white"}}
+}
+}
+});
+}
+
+function updateGraphs(){
+let qa=[], va=[], mock=[];
+
+for(let i=1;i<marksTable.rows.length;i++){
+qa.push(Number(marksTable.rows[i].cells[1].children[0].value) || 0);
+va.push(Number(marksTable.rows[i].cells[2].children[0].value) || 0);
+mock.push(Number(marksTable.rows[i].cells[3].children[0].value) || 0);
+}
+
+createLineChart("qaChart","QA Marks",qa,"#10b981", "qaChartObj");
+createLineChart("vaChart","VA Marks",va,"#f59e0b", "vaChartObj");
+createLineChart("mockChart","Mock Marks",mock,"#ef4444", "mockChartObj");
+}
+
+function createLineChart(canvasId,label,data,color,objName){
+if(window[objName]) window[objName].destroy();
+
+window[objName]=new Chart(
+document.getElementById(canvasId),{
+type:"line",
+data:{
+labels:days,
+datasets:[{
+label:label,
+data:data,
+borderColor:color,
+backgroundColor:color,
+tension:0.3
+}]
+},
+options:{
+responsive:true,
+plugins:{legend:{labels:{color:"white"}}},
+scales:{
+x:{ticks:{color:"white"}},
+y:{ticks:{color:"white"}}
+}
+}
+});
+}
+
+function saveData(){
+let studyData=[];
+for(let i=1;i<table.rows.length;i++){
+let rowData=[];
+for(let j=1;j<=days.length;j++){
+rowData.push(table.rows[i].cells[j].classList.contains("done"));
+}
+studyData.push(rowData);
+}
+localStorage.setItem("adaStudyData",JSON.stringify(studyData));
+
+let scores=[];
+for(let i=1;i<marksTable.rows.length;i++){
+scores.push([
+marksTable.rows[i].cells[1].children[0].value,
+marksTable.rows[i].cells[2].children[0].value,
+marksTable.rows[i].cells[3].children[0].value
+]);
+}
+localStorage.setItem("adaScoreData",JSON.stringify(scores));
+}
+
+function loadData(){
+let studyData=JSON.parse(localStorage.getItem("adaStudyData"));
+if(studyData){
+for(let i=0;i<studyData.length;i++){
+for(let j=0;j<studyData[i].length;j++){
+if(studyData[i][j]){
+table.rows[i+1].cells[j+1].classList.remove("notdone");
+table.rows[i+1].cells[j+1].classList.add("done");
+}
+}
+}
+}
+
+let scores=JSON.parse(localStorage.getItem("adaScoreData"));
+if(scores){
+for(let i=0;i<scores.length;i++){
+marksTable.rows[i+1].cells[1].children[0].value=scores[i][0];
+marksTable.rows[i+1].cells[2].children[0].value=scores[i][1];
+marksTable.rows[i+1].cells[3].children[0].value=scores[i][2];
+}
+}
+
+calculate();
+updateGraphs();
+}
+
+window.onload=loadData;
+</script>
+
+</body>
+</html>
